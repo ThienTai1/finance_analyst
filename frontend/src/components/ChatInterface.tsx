@@ -247,7 +247,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const element = document.createElement("a");
     const file = new Blob([msgContent], { type: "text/markdown" });
     element.href = URL.createObjectURL(file);
-    element.download = "Báo_cáo_phân_tích_tài_chính.md";
+    element.download = "Financial_Analysis_Report.md";
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -260,7 +260,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <Bot size={18} style={{ color: "hsl(var(--accent))" }} />
           <div>
-            <h3 style={{ fontSize: "0.9rem", fontWeight: 700 }}>Trợ lý Phân tích Tài chính</h3>
+            <h3 style={{ fontSize: "0.9rem", fontWeight: 700 }}>Financial Analyst Workstation</h3>
             <span style={{ fontSize: "0.72rem", color: "hsl(var(--text-muted))" }}>Custom ReAct Loop + Local LLM RAG</span>
           </div>
         </div>
@@ -272,14 +272,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {messages.length === 0 ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: "12px", textAlign: "center", color: "hsl(var(--text-muted))" }}>
             <Sparkles size={28} style={{ color: "hsl(var(--accent))", marginBottom: "4px" }} />
-            <h4 style={{ color: "hsl(var(--text-primary))", fontWeight: 700 }}>Tác tử Financial Agentic RAG</h4>
+            <h4 style={{ color: "hsl(var(--text-primary))", fontWeight: 700 }}>Financial Agentic RAG Orchestrator</h4>
             <p style={{ fontSize: "0.82rem", maxWidth: "340px", lineHeight: 1.5, color: "hsl(var(--text-secondary))" }}>
-              Chào mừng! Tôi có thể tra cứu lịch sử giá chứng khoán thời gian thực, đọc các báo cáo tài chính đã upload và tìm kiếm thông tin thị trường mới nhất.
+              Welcome! I can inspect real-time historical market valuations, parse uploaded financial reports, and execute web queries to aggregate the latest macroeconomic sentiments.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "8px", marginTop: "12px" }}>
-              <span className="logo-badge" style={{ cursor: "pointer", textTransform: "none", borderRadius: "6px" }} onClick={() => setInput("Phân tích tình hình tài chính của Tesla quý vừa rồi")}>Tesla Q3 Analysis</span>
-              <span className="logo-badge" style={{ cursor: "pointer", textTransform: "none", borderRadius: "6px" }} onClick={() => setInput("So sánh P/E của AAPL và MSFT hiện tại")}>Compare P/E Ratios</span>
-              <span className="logo-badge" style={{ cursor: "pointer", textTransform: "none", borderRadius: "6px" }} onClick={() => setInput("Tin tức mới nhất về Nvidia (NVDA) là gì?")}>NVDA Market News</span>
+              <span className="logo-badge" style={{ cursor: "pointer", textTransform: "none", borderRadius: "6px" }} onClick={() => setInput("Analyze Tesla's financial performance from the last quarter")}>Tesla Quarterly Analysis</span>
+              <span className="logo-badge" style={{ cursor: "pointer", textTransform: "none", borderRadius: "6px" }} onClick={() => setInput("Compare the P/E and revenue growth of AAPL and MSFT")}>Compare P/E Ratios</span>
+              <span className="logo-badge" style={{ cursor: "pointer", textTransform: "none", borderRadius: "6px" }} onClick={() => setInput("What is the latest market sentiment regarding Nvidia (NVDA)?")}>NVDA Market News</span>
             </div>
           </div>
         ) : (
@@ -298,7 +298,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       {msg.steps && msg.steps.length > 0 && (
                         <div style={{ marginBottom: "14px" }}>
                           <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "hsl(var(--text-muted))", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>
-                            Tiến trình suy luận của Agent:
+                            Agent Reasoning Trace:
                           </span>
                           {msg.steps.map((step) => (
                             <AgentTrace key={step.step} step={step} />
@@ -314,11 +314,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         <button 
                           onClick={() => handleExportMarkdown(msg.content)}
                           style={{ background: "transparent", border: "none", color: "hsl(var(--text-muted))", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.72rem", padding: "4px 8px", borderRadius: "4px", transition: "all var(--transition-fast)" }}
-                          title="Tải báo cáo về máy (.md)"
+                          title="Download report (.md)"
                           className="logo-badge"
                         >
                           <Download size={11} />
-                          Xuất báo cáo
+                          Export Report
                         </button>
                       </div>
                     </>
@@ -338,14 +338,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div className="message-content" style={{ width: "100%" }}>
               <div className="message-bubble" style={{ width: "100%" }}>
                 <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "hsl(var(--text-muted))", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>
-                  Agent đang thực thi (Độ trễ tùy thuộc CPU):
+                  Agent Executing (Latency depends on CPU):
                 </span>
                 {activeSteps.map((step) => (
                   <AgentTrace key={step.step} step={step} />
                 ))}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "hsl(var(--accent))", fontSize: "0.78rem", marginTop: "8px" }}>
                   <Loader2 className="animate-spin" size={13} />
-                  <span>Đang tổng hợp thông tin và suy luận tiếp theo...</span>
+                  <span>Aggregating observations and formulating next steps...</span>
                 </div>
               </div>
             </div>
@@ -357,7 +357,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <div className="glass-panel" style={{ display: "flex", gap: "10px", padding: "12px 16px", borderColor: "rgba(225, 29, 72, 0.2)", background: "rgba(225, 29, 72, 0.03)", color: "hsl(var(--error))", borderRadius: "var(--radius-md)", margin: "10px 0" }}>
             <AlertCircle size={15} style={{ flexShrink: 0, marginTop: "2px" }} />
             <div style={{ fontSize: "0.78rem" }}>
-              <strong>Lỗi hệ thống:</strong> {errorMsg}
+              <strong>System Error:</strong> {errorMsg}
             </div>
           </div>
         )}
@@ -371,7 +371,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={isGenerating ? "Agent đang suy luận, vui lòng đợi..." : "Hỏi về báo cáo tài chính đã upload hoặc mã chứng khoán..."}
+          placeholder={isGenerating ? "Agent is reasoning, please wait..." : "Ask about uploaded financial sheets or enter a stock ticker..."}
           className="chat-input"
           disabled={isGenerating}
         />

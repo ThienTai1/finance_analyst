@@ -43,10 +43,10 @@ MOCK_DATA = [
 
 # Benchmark Queries
 BENCHMARK_QUERIES = [
-    "Doanh thu Tesla quý 3 2025 là bao nhiêu và tăng trưởng thế nào?",
-    "Apple chi bao nhiêu tiền cho nghiên cứu phát triển R&D và chip Silicon?",
-    "Doanh thu Nvidia quý 3 tăng trưởng bao nhiêu phần trăm nhờ chip Blackwell?",
-    "Tác động của đầu tư AI vào chi phí vốn CapEx của Tesla"
+    "What is Tesla's Q3 2025 revenue and how much did it grow?",
+    "How much does Apple spend on R&D and custom Silicon chips?",
+    "What percentage of Nvidia's Q3 revenue growth was driven by Blackwell?",
+    "Impact of AI investments on Tesla's capital expenditures CapEx"
 ]
 
 def seed_database_if_empty(client):
@@ -88,7 +88,7 @@ def run_benchmark():
     results_report = []
     
     print("=" * 100)
-    print(f"{'QUERY / HỎI ĐÁP':<50} | {'DENSE VECTOR ONLY':<20} | {'CROSS-ENCODER RERANKED':<22}")
+    print(f"{'QUERY / TOPIC':<50} | {'DENSE VECTOR ONLY':<20} | {'CROSS-ENCODER RERANKED':<22}")
     print("-" * 100)
     
     total_naive_time = 0.0
@@ -149,7 +149,7 @@ def run_benchmark():
     print("=" * 100)
     avg_naive = total_naive_time / len(BENCHMARK_QUERIES)
     avg_rerank = total_rerank_time / len(BENCHMARK_QUERIES)
-    print(f"{'AVERAGE / TRUNG BÌNH':<50} | {avg_naive:>6.2f} ms            | {avg_rerank:>7.2f} ms")
+    print(f"{'AVERAGE / MEAN':<50} | {avg_naive:>6.2f} ms            | {avg_rerank:>7.2f} ms")
     print("=" * 100)
     
     # 3. Save a beautiful detailed markdown benchmark report in root directory
@@ -166,13 +166,13 @@ This document reports empirical performance and accuracy metrics comparing our *
 
 The benchmarks were executed locally on standard CPU hardware with ONNX Runtime optimizations enabled:
 
-| Query / Đề tài | Baseline Latency (Naive RAG) | Advanced Latency (Cross-Encoder) | Semantic Score (Naive) | Cross-Encoder Relevance (Reranked) |
+| Query / Topic | Baseline Latency (Naive RAG) | Advanced Latency (Cross-Encoder) | Semantic Score (Naive) | Cross-Encoder Relevance (Reranked) |
 | :--- | :---: | :---: | :---: | :---: |
 """)
         for item in results_report:
             f.write(f"| *\"{item['query']}\"* | {item['naive_time']:.2f} ms | {item['rerank_time']:.2f} ms | {item['naive_top_score']:.4f} | {item['rerank_top_score']:.4f} |\n")
             
-        f.write(f"""| **AVERAGE / TRUNG BÌNH** | **{avg_naive:.2f} ms** | **{avg_rerank:.2f} ms** | — | — |
+        f.write(f"""| **AVERAGE / MEAN** | **{avg_naive:.2f} ms** | **{avg_rerank:.2f} ms** | — | — |
 
 ---
 

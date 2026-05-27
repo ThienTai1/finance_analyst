@@ -18,15 +18,16 @@ export const AgentTrace: React.FC<AgentTraceProps> = ({ step }) => {
 
   const getToolDisplayName = (name: string) => {
     switch (name) {
-      case "VectorSearch": return "Tìm kiếm tài liệu PDF RAG";
-      case "StockData": return "Truy xuất dữ liệu Chứng khoán yfinance";
-      case "WebSearch": return "Tìm tin tức trực tuyến DuckDuckGo";
-      case "Hoàn thành": return "Kết thúc phân tích";
+      case "VectorSearch": return "Search PDF RAG Knowledge Base";
+      case "StockData": return "Retrieve Stock Valuation (yfinance)";
+      case "WebSearch": return "Execute Live Web Query (DuckDuckGo)";
+      case "Hoàn thành": return "Formulate Final Investment Report";
+      case "Finished": return "Formulate Final Investment Report";
       default: return name;
     }
   };
 
-  const isCompleted = step.action === "Hoàn thành";
+  const isCompleted = step.action === "Hoàn thành" || step.action === "Finished";
 
   return (
     <div className="agent-trace-box" style={{ borderStyle: isCompleted ? "solid" : "dashed", borderColor: isCompleted ? "rgba(16, 185, 129, 0.3)" : "rgba(6, 182, 212, 0.2)" }}>
@@ -37,11 +38,11 @@ export const AgentTrace: React.FC<AgentTraceProps> = ({ step }) => {
       >
         <div className="trace-title" style={{ color: isCompleted ? "hsl(var(--success))" : "hsl(var(--accent))" }}>
           {isCompleted ? <Bot size={16} /> : <Hammer size={16} />}
-          <span>Bước {step.step}: {getToolDisplayName(step.action)}</span>
+          <span>Step {step.step}: {getToolDisplayName(step.action)}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span className="trace-status" style={{ backgroundColor: isCompleted ? "rgba(16, 185, 129, 0.15)" : "rgba(6, 182, 212, 0.1)", color: isCompleted ? "hsl(var(--success))" : "hsl(var(--accent))" }}>
-            {isCompleted ? "Xong" : "Đang chạy..."}
+            {isCompleted ? "Finished" : "Running..."}
           </span>
           {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </div>
@@ -54,7 +55,7 @@ export const AgentTrace: React.FC<AgentTraceProps> = ({ step }) => {
             <div className="trace-section">
               <span className="trace-section-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                 <Lightbulb size={12} style={{ color: "hsl(var(--warning))" }} />
-                Suy nghĩ của Agent
+                Agent Thoughts & Strategy
               </span>
               <div className="trace-section-value thought">
                 {step.thought}
@@ -67,7 +68,7 @@ export const AgentTrace: React.FC<AgentTraceProps> = ({ step }) => {
             <div className="trace-section">
               <span className="trace-section-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                 <Hammer size={12} style={{ color: "hsl(var(--primary))" }} />
-                Gọi công cụ ({step.action})
+                Execute Tool ({step.action})
               </span>
               <div className="trace-section-value code">
                 {JSON.stringify(step.parameters, null, 2)}
@@ -80,7 +81,7 @@ export const AgentTrace: React.FC<AgentTraceProps> = ({ step }) => {
             <div className="trace-section">
               <span className="trace-section-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                 <Eye size={12} style={{ color: "hsl(var(--accent))" }} />
-                Dữ liệu nhận được (Observation)
+                Received Observation
               </span>
               <div 
                 className="trace-section-value code" 

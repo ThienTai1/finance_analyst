@@ -68,7 +68,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
 
   const uploadFile = async (file: File) => {
     if (!file.name.endsWith(".pdf")) {
-      setError("Chỉ hỗ trợ tệp định dạng PDF (.pdf)");
+      setError("Only PDF files (.pdf) are supported.");
       return;
     }
     
@@ -85,7 +85,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.detail || "Tải lên thất bại");
+        throw new Error(errData.detail || "Upload failed");
       }
 
       await fetchDocuments();
@@ -93,7 +93,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
         onIngestSuccess(file.name);
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi tải lên và xử lý tệp");
+      setError(err.message || "File upload and processing error");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -103,7 +103,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
   };
 
   const handleDelete = async (filename: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa tài liệu '${filename}' khỏi cơ sở dữ liệu?`)) return;
+    if (!confirm(`Are you sure you want to delete the document '${filename}' from the database?`)) return;
     try {
       const res = await fetch(`http://localhost:8000/api/documents/${encodeURIComponent(filename)}`, {
         method: "DELETE",
@@ -113,7 +113,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
         setDocuments(documents.filter((doc) => doc.filename !== filename));
       }
     } catch (err) {
-      setError("Không thể xóa tài liệu.");
+      setError("Could not delete the document.");
     }
   };
 
@@ -126,7 +126,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
     return (
       <div className="glass-panel sidebar-panel">
         <div className="panel-header">
-          <span className="panel-title">Tài liệu RAG ({documents.length})</span>
+          <span className="panel-title">RAG Documents ({documents.length})</span>
         </div>
 
         <div
@@ -147,14 +147,14 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
           {isUploading ? (
             <>
               <Loader2 className="upload-icon animate-spin" size={20} style={{ color: "hsl(var(--accent))" }} />
-              <span className="upload-text">Đang trích xuất & nhúng...</span>
-              <span className="upload-subtext">Đang chạy FastEmbed cục bộ</span>
+              <span className="upload-text">Extracting & indexing...</span>
+              <span className="upload-subtext">Running FastEmbed locally</span>
             </>
           ) : (
             <>
               <Upload className="upload-icon" size={20} />
-              <span className="upload-text">Tải báo cáo tài chính PDF</span>
-              <span className="upload-subtext">Nhấp hoặc kéo thả tệp vào đây</span>
+              <span className="upload-text">Upload PDF Financial Report</span>
+              <span className="upload-subtext">Click or drag & drop files here</span>
             </>
           )}
         </div>
@@ -169,7 +169,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
         <div className="document-list">
           {documents.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px 0", color: "hsl(var(--text-muted))", fontSize: "0.78rem" }}>
-              Chưa có tài liệu RAG nào được nạp.
+              No RAG documents ingested yet.
             </div>
           ) : (
             documents.map((doc) => (
@@ -184,7 +184,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
                 <button
                   className="document-delete-btn"
                   onClick={() => handleDelete(doc.filename)}
-                  title="Xóa tài liệu"
+                  title="Delete document"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -203,7 +203,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
         <div className="saas-hero-section">
           <h2 className="saas-hero-title">RAG Vector Storage Manager</h2>
           <p className="saas-hero-desc">
-            Tải lên, quản lý và kiểm tra siêu dữ liệu các văn bản tài chính đã lập chỉ mục cục bộ trong cơ sở dữ liệu Qdrant.
+            Upload, manage, and inspect the metadata of financial documents indexed locally in the Qdrant database.
           </p>
         </div>
 
@@ -211,7 +211,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
           {/* Left Column: Management */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h3 style={{ fontSize: "0.95rem", fontWeight: 700 }}>Danh mục báo cáo đã chỉ mục ({documents.length})</h3>
+              <h3 style={{ fontSize: "0.95rem", fontWeight: 700 }}>Indexed Reports Directory ({documents.length})</h3>
             </div>
 
             {/* Ingestion zone */}
@@ -234,14 +234,14 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
               {isUploading ? (
                 <>
                   <Loader2 className="upload-icon animate-spin" size={28} style={{ color: "hsl(var(--accent))" }} />
-                  <span className="upload-text" style={{ fontSize: "0.9rem" }}>Đang thực thi trích xuất và nhúng dữ liệu RAG...</span>
-                  <span className="upload-subtext">Quy trình chạy 100% cục bộ bằng mô hình bge-small-en-v1.5 qua CPU</span>
+                  <span className="upload-text" style={{ fontSize: "0.9rem" }}>Executing RAG extraction and embeddings...</span>
+                  <span className="upload-subtext">Running 100% locally using bge-small-en-v1.5 model via CPU</span>
                 </>
               ) : (
                 <>
                   <Upload className="upload-icon" size={28} style={{ color: "hsl(var(--accent))" }} />
-                  <span className="upload-text" style={{ fontSize: "0.9rem" }}>Kéo và thả tệp báo cáo PDF vào đây để nạp RAG</span>
-                  <span className="upload-subtext">Hỗ trợ thuyết minh báo cáo tài chính quý/năm (.pdf)</span>
+                  <span className="upload-text" style={{ fontSize: "0.9rem" }}>Drag & drop PDF reports here to ingest into RAG</span>
+                  <span className="upload-subtext">Supports quarterly/annual financial statement PDFs</span>
                 </>
               )}
             </div>
@@ -257,7 +257,7 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "300px", overflowY: "auto" }}>
               {documents.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 0", border: "1px dashed hsl(var(--border))", borderRadius: "var(--radius-md)", color: "hsl(var(--text-muted))", fontSize: "0.85rem", backgroundColor: "hsl(var(--bg-base))" }}>
-                  Không có tệp PDF nào trong cơ sở dữ liệu RAG cục bộ. Hãy tải tệp đầu tiên lên để bắt đầu!
+                  No PDF files found in the local RAG database. Upload your first report to start!
                 </div>
               ) : (
                 documents.map((doc) => (
@@ -266,13 +266,13 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
                       <FileText size={18} style={{ color: "hsl(var(--accent))" }} />
                       <div>
                         <div className="document-name" style={{ fontSize: "0.85rem" }}>{doc.filename}</div>
-                        <div className="document-size" style={{ fontSize: "0.72rem" }}>Dung lượng: {doc.size_mb} MB | Định dạng: PDF Document</div>
+                        <div className="document-size" style={{ fontSize: "0.72rem" }}>Size: {doc.size_mb} MB | Format: PDF Document</div>
                       </div>
                     </div>
                     <button
                       className="document-delete-btn"
                       onClick={() => handleDelete(doc.filename)}
-                      title="Xóa tài liệu khỏi Qdrant"
+                      title="Delete document from Qdrant"
                       style={{ padding: "8px" }}
                     >
                       <Trash2 size={15} />
@@ -295,18 +295,18 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
               <div className="fundamental-card" style={{ padding: "16px" }}>
                 <span className="fundamental-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                   <CheckCircle2 size={12} style={{ color: "hsl(var(--success))" }} />
-                  Trạng thái Collection
+                  Collection Status
                 </span>
                 <span className="fundamental-value" style={{ fontSize: "1.1rem" }}>financial_reports (ACTIVE)</span>
               </div>
 
               <div className="fundamental-card" style={{ padding: "16px" }}>
-                <span className="fundamental-label">Mô hình Nhúng Vector cục bộ</span>
+                <span className="fundamental-label">Local Embedding Model</span>
                 <span className="fundamental-value" style={{ fontSize: "1.1rem" }}>BAAI/bge-small-en-v1.5 (ONNX optimized)</span>
               </div>
 
               <div className="fundamental-card" style={{ padding: "16px" }}>
-                <span className="fundamental-label">Phương pháp Chunking & Overlap</span>
+                <span className="fundamental-label">Chunking & Overlap Strategy</span>
                 <span className="fundamental-value" style={{ fontSize: "1.1rem" }}>1000 chars / 200 chars overlap</span>
               </div>
 
@@ -322,9 +322,9 @@ export const DocumentPortal: React.FC<DocumentPortalProps> = ({
             <div style={{ padding: "16px", backgroundColor: "rgba(79, 70, 229, 0.03)", border: "1px solid rgba(79, 70, 229, 0.1)", borderRadius: "var(--radius-md)", fontSize: "0.8rem", lineHeight: 1.5, color: "hsl(var(--text-secondary))" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "hsl(var(--accent))", marginBottom: "6px" }}>
                 <ShieldCheck size={16} />
-                <span>Bảo mật dữ liệu 100% Cục bộ</span>
+                <span>100% Local Data Privacy</span>
               </div>
-              Tất cả tài liệu PDF tải lên đây được phân tách, nhúng vector bằng FastEmbed và lưu vào phân vùng đĩa cục bộ trên máy của bạn. Hệ thống không gửi bất kỳ dòng văn bản nào lên internet, đảm bảo tuyệt đối tính bảo mật cho báo cáo tài chính nội bộ hoặc nhạy cảm.
+              All PDF documents uploaded here are parsed, embedded using FastEmbed, and saved to your local disk partition. The system never transmits any text contents to the internet, guaranteeing complete privacy for internal or confidential financial sheets.
             </div>
           </div>
         </div>

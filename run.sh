@@ -20,71 +20,71 @@ WORKSPACE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE_DIR"
 
 # 1. Check Python installation
-echo -e "${BLUE}[1/5] Kiểm tra Python...${NC}"
+echo -e "${BLUE}[1/5] Checking Python installation...${NC}"
 if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Lỗi: Không tìm thấy Python3 trên máy tính của bạn.${NC}"
+    echo -e "${RED}Error: Python3 was not found on your system.${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓ Đã tìm thấy Python3: $(python3 --version)${NC}"
+echo -e "${GREEN}✓ Found Python3: $(python3 --version)${NC}"
 
 # 2. Check and activate Virtual Environment
-echo -e "${BLUE}[2/5] Kiểm tra môi trường ảo Python (venv)...${NC}"
+echo -e "${BLUE}[2/5] Checking Python Virtual Environment (venv)...${NC}"
 if [ ! -d "backend/venv" ]; then
-    echo -e "${YELLOW}Chưa phát hiện venv. Đang tự động khởi tạo venv tại backend/venv...${NC}"
+    echo -e "${YELLOW}No venv detected. Automatically initializing at backend/venv...${NC}"
     python3 -m venv backend/venv
 fi
 source backend/venv/bin/activate
-echo -e "${GREEN}✓ Đã kích hoạt venv thành công.${NC}"
+echo -e "${GREEN}✓ Activated virtual environment successfully.${NC}"
 
 # Install python dependencies
-echo -e "${BLUE}Đang cập nhật các thư viện Backend (pip install)...${NC}"
+echo -e "${BLUE}Updating Backend packages (pip install)...${NC}"
 pip install --upgrade pip -q
 pip install -r backend/requirements.txt -q
-echo -e "${GREEN}✓ Cập nhật thư viện Python hoàn tất.${NC}"
+echo -e "${GREEN}✓ Python packages update completed.${NC}"
 
 # 3. Check and update Node dependencies
-echo -e "${BLUE}[3/5] Kiểm tra thư viện Frontend Node.js (npm install)...${NC}"
+echo -e "${BLUE}[3/5] Checking Frontend Node.js packages (npm install)...${NC}"
 if [ ! -d "frontend/node_modules" ]; then
-    echo -e "${YELLOW}Chưa phát hiện thư mục node_modules. Đang chạy npm install...${NC}"
+    echo -e "${YELLOW}No node_modules directory found. Running npm install...${NC}"
     cd frontend && npm install && cd ..
 else
-    echo -e "${GREEN}✓ node_modules đã tồn tại.${NC}"
+    echo -e "${GREEN}✓ node_modules exists.${NC}"
 fi
 
 # 4. Check Ollama server state
-echo -e "${BLUE}[4/5] Kiểm tra dịch vụ Ollama cục bộ...${NC}"
+echo -e "${BLUE}[4/5] Checking local Ollama service...${NC}"
 OLLAMA_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:11434/api/tags || true)
 if [ "$OLLAMA_CHECK" != "200" ]; then
-    echo -e "${RED}Cảnh báo: Không thể kết nối với Ollama tại cổng 11434.${NC}"
-    echo -e "${YELLOW}Lưu ý: Bạn hãy bật ứng dụng Ollama trên máy tính của mình trước khi gửi tin nhắn cho Agent.${NC}"
+    echo -e "${RED}Warning: Could not connect to Ollama at port 11434.${NC}"
+    echo -e "${YELLOW}Note: Make sure to launch the Ollama desktop app before querying the AI Agent.${NC}"
 else
-    echo -e "${GREEN}✓ Đã kết nối thành công với Ollama (Port 11434).${NC}"
+    echo -e "${GREEN}✓ Successfully connected to Ollama (Port 11434).${NC}"
     
     # Check if configured model exists
     MODEL_CHECK=$(curl -s http://localhost:11434/api/tags | grep -q "qwen2.5" && echo "yes" || echo "no")
     if [ "$MODEL_CHECK" == "yes" ]; then
-        echo -e "${GREEN}✓ Đã phát hiện mô hình qwen2.5 trong Ollama.${NC}"
+        echo -e "${GREEN}✓ Detected model 'qwen2.5' in Ollama.${NC}"
     else
-        echo -e "${YELLOW}Lưu ý: Chưa tìm thấy mô hình 'qwen2.5' trong danh sách Ollama.${NC}"
-        echo -e "${CYAN}Gợi ý: Hãy chạy lệnh 'ollama pull qwen2.5' ở cửa sổ terminal mới để tải mô hình về máy.${NC}"
+        echo -e "${YELLOW}Note: Could not find model 'qwen2.5' in your local Ollama models list.${NC}"
+        echo -e "${CYAN}Suggestion: Run 'ollama pull qwen2.5' in a separate terminal to download it.${NC}"
     fi
 fi
 
 # 5. Launch both servers concurrently and trap exit
-echo -e "${BLUE}[5/5] Đang khởi chạy hệ thống (Backend & Frontend)...${NC}"
+echo -e "${BLUE}[5/5] Launching workstation (Backend & Frontend concurrently)...${NC}"
 
 # Setup exit trap to kill both background processes on Ctrl+C
 cleanup() {
-    echo -e "\n${YELLOW}Đang dừng các dịch vụ đang chạy...${NC}"
+    echo -e "\n${YELLOW}Stopping background processes...${NC}"
     kill "$BACKEND_PID" 2>/dev/null
     kill "$FRONTEND_PID" 2>/dev/null
-    echo -e "${GREEN}Hệ thống đã dừng hoàn toàn. Hẹn gặp lại bạn!${NC}"
+    echo -e "${GREEN}Workstation stopped. See you next time!${NC}"
     exit 0
 }
 trap cleanup SIGINT SIGTERM EXIT
 
 # Start Backend (FastAPI)
-echo -e "${CYAN}Đang khởi động Backend FastAPI tại http://localhost:8000...${NC}"
+echo -e "${CYAN}Starting Backend FastAPI at http://localhost:8000...${NC}"
 cd "$WORKSPACE_DIR/backend"
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > uvicorn.log 2>&1 &
 BACKEND_PID=$!
@@ -93,18 +93,18 @@ BACKEND_PID=$!
 sleep 2
 
 # Start Frontend (Vite)
-echo -e "${CYAN}Đang khởi động Frontend Vite React tại http://localhost:5173...${NC}"
+echo -e "${CYAN}Starting Frontend Vite React at http://localhost:5173...${NC}"
 cd "$WORKSPACE_DIR/frontend"
 npm run dev &
 FRONTEND_PID=$!
 
 echo -e "${GREEN}${BOLD}"
 echo "=========================================================="
-echo "  HỆ THỐNG KHỞI CHẠY THÀNH CÔNG!"
-echo "  - Giao diện người dùng: http://localhost:5173"
-echo "  - API Backend Swagger:  http://localhost:8000/docs"
+echo "  WORKSTATION LAUNCHED SUCCESSFULLY!"
+echo "  - User Interface:  http://localhost:5173"
+echo "  - Swagger API Doc: http://localhost:8000/docs"
 echo "=========================================================="
-echo -e "${NC}Nhấn ${RED}Ctrl + C${NC} để tắt tất cả các cổng máy chủ."
+echo -e "${NC}Press ${RED}Ctrl + C${NC} to shut down all server ports."
 
 # Keep script running
 while true; do

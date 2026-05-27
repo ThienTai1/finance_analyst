@@ -31,7 +31,7 @@ RULES:
 1. ONLY output ONE (Thought + Action + Parameters) block or ONE (Thought + Final Answer) block per turn. Do not write multiple actions.
 2. Wait for the Observation from the system after calling a tool. Never write your own 'Observation:'.
 3. If a tool call fails or returns an error, explain what happened in your next Thought and try to correct the query or use a different tool.
-4. Speak the language of the user. If the user asks in Vietnamese, write your Thoughts, Final Answer, and summaries in Vietnamese. Keep tool names and parameters in English.
+4. Always write your Thoughts, Final Answer, and summaries in English, as this workstation is an international-grade portal.
 5. If the question can be answered directly without tools, you can skip straight to Final Answer.
 """
 
@@ -154,13 +154,13 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
     # Build prompt content with history & query
     prompt_history = ""
     if chat_history:
-        prompt_history += "Lịch sử trò chuyện trước đó:\n"
+        prompt_history += "Previous conversation history:\n"
         for msg in chat_history[-6:]: # Keep last 3 turns
-            role = "Người dùng" if msg["role"] == "user" else "Tác tử"
+            role = "User" if msg["role"] == "user" else "Agent"
             prompt_history += f"{role}: {msg['content']}\n"
         prompt_history += "\n"
         
-    prompt_history += f"Inquiry hiện tại của người dùng: {user_query}\n\nBắt đầu vòng lặp ReAct:\n"
+    prompt_history += f"Current user inquiry: {user_query}\n\nStart ReAct loop:\n"
     
     current_prompt = prompt_history
     
@@ -177,7 +177,7 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
             
             # 2. Parse output
             parsed = parse_agent_response(llm_output)
-            thought = parsed["thought"] or "Đang tiến hành phân tích thông tin..."
+            thought = parsed["thought"] or "Analyzing information..."
             
             # Append this step's LLM generation to the prompt history
             current_prompt += f"\n{llm_output}\n"
@@ -189,7 +189,7 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
                     "type": "step",
                     "step": step_num,
                     "thought": thought,
-                    "action": "Hoàn thành",
+                    "action": "Finished",
                     "parameters": None
                 }) + "\n"
                 yield json.dumps({
@@ -297,5 +297,5 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
     logger.warning("Agent reached maximum step limit.")
     yield json.dumps({
         "type": "error",
-        "message": "Vượt quá số bước suy luận tối đa (max steps limit). Agent dừng hoạt động để tránh vòng lặp vô hạn."
+        "message": "Exceeded maximum steps limit. Agent stopped to prevent infinite loops."
     }) + "\n"

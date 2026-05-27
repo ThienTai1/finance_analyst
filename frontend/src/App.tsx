@@ -106,7 +106,7 @@ export default function App() {
       ...prev,
       {
         role: "assistant",
-        content: `Tôi đã hoàn thành phân tích và lập chỉ mục (index) tệp tài liệu **${filename}** vào Cơ sở dữ liệu Vector Qdrant cục bộ thành công! Bạn có thể bắt đầu đặt câu hỏi liên quan đến nội dung tài liệu này.`
+        content: `Successfully analyzed and indexed document **${filename}** into the local Qdrant Vector Database! You can now start asking questions about its contents.`
       }
     ]);
     setRefreshTrigger(prev => prev + 1);
@@ -136,11 +136,11 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Mất kết nối với máy chủ API (${response.statusText})`);
+        throw new Error(`Failed to connect to the API server (${response.statusText})`);
       }
 
       if (!response.body) {
-        throw new Error("Luồng dữ liệu rỗng (Empty response body)");
+        throw new Error("Empty response body from stream");
       }
 
       const reader = response.body.getReader();
@@ -218,7 +218,7 @@ export default function App() {
           ...prev,
           {
             role: "assistant",
-            content: "Agent đã chạy xong tiến trình nhưng không đưa ra 'Final Answer' rõ ràng. Vui lòng kiểm tra tab tiến trình suy luận ở trên.",
+            content: "The agent completed its execution but did not provide a clear 'Final Answer'. Please inspect the reasoning trace above.",
             steps: responseSteps
           }
         ]);
@@ -226,7 +226,7 @@ export default function App() {
 
     } catch (err: any) {
       console.error("Chat failure", err);
-      setErrorMsg(err.message || "Gặp sự cố khi gửi yêu cầu.");
+      setErrorMsg(err.message || "An error occurred while sending the request.");
     } finally {
       setIsGenerating(false);
       setActiveSteps([]);
@@ -302,7 +302,7 @@ export default function App() {
               onClick={checkHealth} 
               disabled={isHealthChecking}
               style={{ background: "transparent", border: "none", cursor: "pointer", color: "hsl(var(--text-muted))", display: "flex", alignItems: "center" }}
-              title="Làm mới trạng thái"
+              title="Refresh status"
             >
               <RefreshCw size={13} className={isHealthChecking ? "animate-spin" : ""} />
             </button>
@@ -358,7 +358,7 @@ export default function App() {
                 <div className="saas-hero-section">
                   <h2 className="saas-hero-title">Empirical Accuracy & Latency Dashboard</h2>
                   <p className="saas-hero-desc">
-                    Đo lường thời gian thực thi (Latency) và độ chính xác phân tích (Relevance Score) giữa RAG Cơ bản (Standard Bi-Encoder) và RAG Nâng cao (Cross-Encoder Reranker).
+                    Empirical metrics measuring execution latency and retrieval relevance score comparing Standard Naive RAG (Bi-Encoder) and Advanced RAG (Cross-Encoder Reranker).
                   </p>
                 </div>
 
@@ -367,16 +367,16 @@ export default function App() {
                   <div className="benchmark-stat-card">
                     <span className="fundamental-label" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                       <Gauge size={13} style={{ color: "hsl(var(--success))" }} />
-                      Độ trễ RAG Cơ bản
+                      Standard RAG Latency
                     </span>
                     <div className="benchmark-stat-val">6.92 ms</div>
-                    <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-muted))" }}>Tìm kiếm vector đơn tuyến</span>
+                    <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-muted))" }}>Single-vector semantic search</span>
                   </div>
 
                   <div className="benchmark-stat-card">
                     <span className="fundamental-label" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                       <Activity size={13} style={{ color: "hsl(var(--accent))" }} />
-                      Độ trễ RAG Nâng cao
+                      Advanced RAG Latency
                     </span>
                     <div className="benchmark-stat-val" style={{ color: "hsl(var(--accent))" }}>153.74 ms</div>
                     <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-muted))" }}>15 Chunks + Cross-Encoder Reranker</span>
@@ -385,50 +385,50 @@ export default function App() {
                   <div className="benchmark-stat-card">
                     <span className="fundamental-label" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                       <Sparkles size={13} style={{ color: "hsl(var(--warning))" }} />
-                      Cải thiện độ chính xác
+                      Precision Improvement
                     </span>
                     <div className="benchmark-stat-val" style={{ color: "hsl(var(--success))" }}>+184%</div>
-                    <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-muted))" }}>Lọc nhiễu & loại bỏ ảo giác LLM</span>
+                    <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-muted))" }}>Noise filtering & LLM hallucination mitigation</span>
                   </div>
                 </div>
 
                 {/* Benchmark Markdown-like SaaS Table */}
                 <div className="markdown-body">
-                  <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "12px" }}>Bảng so khớp kết quả thực nghiệm tìm kiếm</h3>
+                  <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "12px" }}>Empirical Search Benchmark Comparison Table</h3>
                   <table style={{ margin: "0 0 24px 0" }}>
                     <thead>
                       <tr>
-                        <th>Câu hỏi đo kiểm (Benchmark Query)</th>
+                        <th>Benchmark Query</th>
                         <th style={{ textAlign: "center" }}>Naive RAG (Vector)</th>
                         <th style={{ textAlign: "center" }}>Advanced RAG (Rerank)</th>
-                        <th style={{ textAlign: "center" }}>Điểm Vector</th>
-                        <th style={{ textAlign: "center" }}>Điểm Reranker</th>
+                        <th style={{ textAlign: "center" }}>Vector Score</th>
+                        <th style={{ textAlign: "center" }}>Reranker Score</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td>*“Doanh thu Tesla Q3 2025 là bao nhiêu?”*</td>
+                        <td>*“What is Tesla's Q3 2025 revenue?”*</td>
                         <td style={{ textAlign: "center", color: "hsl(var(--text-muted))" }}>6.92 ms</td>
                         <td style={{ textAlign: "center", fontWeight: 600, color: "hsl(var(--accent))" }}>175.31 ms</td>
                         <td style={{ textAlign: "center" }}>0.6380</td>
                         <td style={{ textAlign: "center", fontWeight: 700, color: "hsl(var(--success))" }}>6.7966</td>
                       </tr>
                       <tr>
-                        <td>*“Apple chi bao nhiêu cho R&D và chip Silicon?”*</td>
+                        <td>*“How much does Apple spend on R&D and Silicon chips?”*</td>
                         <td style={{ textAlign: "center", color: "hsl(var(--text-muted))" }}>6.84 ms</td>
                         <td style={{ textAlign: "center", fontWeight: 600, color: "hsl(var(--accent))" }}>156.85 ms</td>
                         <td style={{ textAlign: "center" }}>0.6328</td>
                         <td style={{ textAlign: "center", fontWeight: 700, color: "hsl(var(--success))" }}>5.5349</td>
                       </tr>
                       <tr>
-                        <td>*“Doanh thu Nvidia tăng trưởng nhờ Blackwell?”*</td>
+                        <td>*“Is Nvidia's revenue growth driven by Blackwell?”*</td>
                         <td style={{ textAlign: "center", color: "hsl(var(--text-muted))" }}>7.38 ms</td>
                         <td style={{ textAlign: "center", fontWeight: 600, color: "hsl(var(--accent))" }}>142.30 ms</td>
                         <td style={{ textAlign: "center" }}>0.6341</td>
                         <td style={{ textAlign: "center", fontWeight: 700, color: "hsl(var(--success))" }}>2.7101</td>
                       </tr>
                       <tr>
-                        <td>*“Tác động của đầu tư AI vào CapEx của Tesla”*</td>
+                        <td>*“Impact of AI investments on Tesla's CapEx”*</td>
                         <td style={{ textAlign: "center", color: "hsl(var(--text-muted))" }}>6.54 ms</td>
                         <td style={{ textAlign: "center", fontWeight: 600, color: "hsl(var(--accent))" }}>140.50 ms</td>
                         <td style={{ textAlign: "center" }}>0.6122</td>
@@ -449,20 +449,20 @@ export default function App() {
                     <div className="fundamental-card" style={{ padding: "16px" }}>
                       <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "hsl(var(--text-primary))", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
                         <Layers size={14} style={{ color: "hsl(var(--accent))" }} />
-                        Hạn chế của Tìm kiếm Vector thuần túy (Bi-Encoder)
+                        Limitations of Naive Vector Search (Bi-Encoder)
                       </h4>
                       <p style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "hsl(var(--text-secondary))" }}>
-                        Standard vector search ánh xạ truy vấn và đoạn văn độc lập lên không gian vector. Phương pháp này đôi khi bỏ lỡ các từ khóa cụ thể hoặc các đoạn thông tin có cấu trúc phức tạp. Trong kiểm thử, Vector Search bị lệch mục tiêu ở câu hỏi Apple R&D (chỉ tìm thấy báo cáo Q4 chung) và Tesla CapEx (chỉ tìm thấy doanh thu chung).
+                        Standard vector search maps queries and documents independently to a vector space. This approach sometimes misses specific keywords or complex structured segments. In empirical benchmarks, standard search is diluted by generic chunks, missing key metrics such as Apple's specific $7.85B R&D expenses.
                       </p>
                     </div>
 
                     <div className="fundamental-card" style={{ padding: "16px" }}>
                       <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "hsl(var(--text-primary))", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
                         <Sparkles size={14} style={{ color: "hsl(var(--success))" }} />
-                        Sức mạnh vượt trội của Cross-Encoder Reranking
+                        The Supremacy of Cross-Encoder Reranking
                       </h4>
                       <p style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "hsl(var(--text-secondary))" }}>
-                        Cross-Encoder so khớp trực tiếp cặp (Câu hỏi, Đoạn tài liệu) bằng liên kết chú ý (joint attention) cấp độ token. Cơ chế này lập tức sửa sai các đoạn văn bản Vector Search lấy nhầm và đẩy các thông tin số liệu chính xác (ví dụ: đoạn chi phí R&D 7.85 tỷ USD hay CapEx 2.58 tỷ USD do AI) lên vị trí đầu tiên để cấp cho LLM.
+                        Cross-encoders evaluate the exact query-document token pairings simultaneously using joint self-attention. This mechanism instantly filters out irrelevant passages and boosts highly accurate metrics (e.g. surfacing Apple's exact $7.85B R&D chip expense) to top priority for the LLM synthesis.
                       </p>
                     </div>
                   </div>

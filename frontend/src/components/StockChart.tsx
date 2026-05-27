@@ -129,9 +129,9 @@ export const StockChart: React.FC<StockChartProps> = ({
     return (
       <div className="glass-panel chart-panel" style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "40px 24px", textAlign: "center", minHeight: "400px" }}>
         <TrendingUp size={44} style={{ color: "hsl(var(--text-muted))", marginBottom: "16px", opacity: 0.5 }} />
-        <h3 style={{ marginBottom: "8px", fontWeight: 700, fontSize: "1rem" }}>Thiếu dữ liệu thị trường</h3>
+        <h3 style={{ marginBottom: "8px", fontWeight: 700, fontSize: "1rem" }}>No Market Data Active</h3>
         <p style={{ color: "hsl(var(--text-muted))", fontSize: "0.82rem", maxWidth: "320px", lineHeight: 1.5 }}>
-          Hệ thống đang sẵn sàng. Hãy yêu cầu Agent phân tích cổ phiếu cụ thể (ví dụ: "Phân tích giá cổ phiếu AAPL" hoặc "So sánh NVDA") để vẽ biểu đồ và hiển thị các tỷ số tài chính.
+          Workstation ready. Ask the agent to analyze a specific ticker (e.g. "Analyze Apple's PE ratio" or "Compare MSFT and NVDA") to generate live charts and extract fundamental vectors.
         </p>
       </div>
     );
@@ -158,7 +158,7 @@ export const StockChart: React.FC<StockChartProps> = ({
             <span className="chart-header-currency">{fundamentals.currency}</span>
           </div>
           <span style={{ fontSize: "0.68rem", color: "hsl(var(--text-muted))" }}>
-            {activePoint?.date ? `Ngày: ${activePoint.date}` : "Cập nhật gần nhất"}
+            {activePoint?.date ? `Date: ${activePoint.date}` : "Last Update"}
           </span>
         </div>
       </div>
@@ -314,29 +314,29 @@ export const StockChart: React.FC<StockChartProps> = ({
       <div style={{ padding: "0 16px 8px 16px", marginTop: "4px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "hsl(var(--text-primary))", fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
           <Activity size={14} style={{ color: "hsl(var(--accent))" }} />
-          <span>Thông số cơ bản</span>
+          <span>Key Fundamentals</span>
         </div>
       </div>
       
       <div className="fundamentals-grid" style={{ margin: "0 16px 12px 16px", padding: 0, gap: "10px" }}>
         <div className="fundamental-card" style={{ padding: "10px 12px" }}>
-          <span className="fundamental-label">Vốn hóa (Market Cap)</span>
+          <span className="fundamental-label">Market Capitalization</span>
           <span className="fundamental-value">{formatMarketCap(fundamentals.market_cap)}</span>
         </div>
         <div className="fundamental-card" style={{ padding: "10px 12px" }}>
-          <span className="fundamental-label">Hệ số P/E (Trailing)</span>
+          <span className="fundamental-label">Trailing P/E Ratio</span>
           <span className="fundamental-value">{fundamentals.pe_ratio_formatted}</span>
         </div>
         <div className="fundamental-card" style={{ padding: "10px 12px" }}>
-          <span className="fundamental-label">Tỷ suất LN (Profit Margin)</span>
+          <span className="fundamental-label">Net Profit Margin</span>
           <span className="fundamental-value">{fundamentals.profit_margin}</span>
         </div>
         <div className="fundamental-card" style={{ padding: "10px 12px" }}>
-          <span className="fundamental-label">Tỷ lệ Nợ/VCSH (D/E)</span>
+          <span className="fundamental-label">Debt-to-Equity (D/E)</span>
           <span className="fundamental-value">{fundamentals.debt_to_equity}</span>
         </div>
         <div className="fundamental-card" style={{ gridColumn: "span 2", padding: "10px 12px" }}>
-          <span className="fundamental-label">Tỷ suất cổ tức | Tăng trưởng DT</span>
+          <span className="fundamental-label">Div Yield | Revenue Growth</span>
           <span className="fundamental-value" style={{ fontSize: "0.85rem" }}>
             {fundamentals.dividend_yield} | {fundamentals.revenue_growth} (YoY)
           </span>
@@ -348,7 +348,7 @@ export const StockChart: React.FC<StockChartProps> = ({
         <div style={{ padding: "0 16px 16px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "hsl(var(--text-primary))", fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "6px" }}>
             <BookOpen size={14} style={{ color: "hsl(var(--accent))" }} />
-            <span>Tóm tắt hoạt động kinh doanh</span>
+            <span>Business Operations Summary</span>
           </div>
           <p style={{ fontSize: "0.75rem", color: "hsl(var(--text-secondary))", lineHeight: 1.5, height: "70px", overflowY: "auto", padding: "8px 12px", backgroundColor: "hsl(var(--bg-base))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius-sm)" }}>
             {fundamentals.summary}
