@@ -435,7 +435,7 @@ export default function App() {
                         <td style={{ textAlign: "center", fontWeight: 700, color: "hsl(var(--success))" }}>2.2574</td>
                       </tr>
                       <tr style={{ backgroundColor: "hsl(var(--bg-surface-raised))", fontWeight: 700 }}>
-                        <td>**TRUNG BÌNH / AVERAGE**</td>
+                        <td>**AVERAGE**</td>
                         <td style={{ textAlign: "center" }}>**6.92 ms**</td>
                         <td style={{ textAlign: "center", color: "hsl(var(--accent))" }}>**153.74 ms**</td>
                         <td style={{ textAlign: "center" }}>—</td>
