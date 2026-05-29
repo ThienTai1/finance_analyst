@@ -28,14 +28,21 @@ def vector_search(query: str, limit: int = 5) -> str:
     """
     logger.info(f"Tool VectorSearch called with query: '{query}'")
     try:
+        from app.config import QDRANT_SEARCH_EF
         client = get_qdrant_client()
         
-        # 1. Hybrid Candidate Retrieval: Get 15 chunks semantically
+        # Build search-time tuning options
+        search_kwargs = {}
+        if QDRANT_SEARCH_EF is not None:
+            search_kwargs["search_params"] = models.SearchParams(hnsw_ef=QDRANT_SEARCH_EF)
+            
+        # 1. Hybrid Candidate Retrieval: Get 15 chunks semantically and key-word based
         candidates_limit = 15
         results = client.query(
             collection_name=COLLECTION_NAME,
             query_text=query,
-            limit=candidates_limit
+            limit=candidates_limit,
+            **search_kwargs
         )
         
         if not results:

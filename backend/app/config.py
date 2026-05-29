@@ -30,3 +30,15 @@ SEMANTIC_SPLIT_THRESHOLD_PERCENTILE = int(os.getenv("SEMANTIC_SPLIT_THRESHOLD_PE
 CHUNK_MIN_SIZE = int(os.getenv("CHUNK_MIN_SIZE", "200"))
 CHUNK_MAX_SIZE = int(os.getenv("CHUNK_MAX_SIZE", "1500"))
 
+# Hybrid Search configurations
+HYBRID_SEARCH_ENABLED = os.getenv("HYBRID_SEARCH_ENABLED", "true").lower() == "true"
+SPARSE_EMBEDDING_MODEL = os.getenv("SPARSE_EMBEDDING_MODEL", "Qdrant/bm25")
+
+# HNSW Vector Index configurations
+QDRANT_HNSW_M = int(os.getenv("QDRANT_HNSW_M", "16"))
+QDRANT_HNSW_EF_CONSTRUCT = int(os.getenv("QDRANT_HNSW_EF_CONSTRUCT", "100"))
+QDRANT_SEARCH_EF = os.getenv("QDRANT_SEARCH_EF")
+if QDRANT_SEARCH_EF is not None:
+    QDRANT_SEARCH_EF = int(QDRANT_SEARCH_EF)
+
+
