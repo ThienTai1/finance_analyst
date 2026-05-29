@@ -183,10 +183,19 @@ def vector_search(
             except Exception as rewrite_err:
                 logger.error(f"Failed to execute query rewrite or retry: {rewrite_err}")
 
-        # Format results
-        if not results:
-            return "No matching financial records found in the database. Please upload a PDF report first."
+        # 3. GraphRAG relational search
+        graph_context = ""
+        try:
+            from app.rag.graph import graph_search
+            graph_context = graph_search(original_query)
+        except Exception as graph_search_err:
+            logger.error(f"Error executing GraphRAG search: {graph_search_err}")
+
+        # Format and Fuse results
+        if not results and not graph_context:
+            return "No matching financial records or relational facts found in the database. Please upload a PDF report first."
             
+        vector_text = ""
         if scored_results:
             # Keep only the top 5 chunks
             final_results = scored_results[:limit]
@@ -201,10 +210,9 @@ def vector_search(
                 formatted_results.append(
                     f"[Source: {filename}, Page: {page}] (Cross-Encoder Rerank Score: {score:.4f})\nContent: {res.document}"
                 )
-                
+            vector_text = "\n\n---\n\n".join(formatted_results)
             logger.info("Successfully reranked candidate chunks using local Cross-Encoder.")
-            return "\n\n---\n\n".join(formatted_results)
-        else:
+        elif results:
             # Fallback to top-5 standard semantic similarity
             formatted_results = []
             for res in results[:limit]:
@@ -214,7 +222,23 @@ def vector_search(
                 formatted_results.append(
                     f"[Source: {filename}, Page: {page}] (Similarity Score: {res.score:.4f})\nContent: {res.document}"
                 )
-            return "\n\n---\n\n".join(formatted_results)
+            vector_text = "\n\n---\n\n".join(formatted_results)
+
+        # FUSE GraphRAG and VectorSearch contexts
+        fused_text = ""
+        if graph_context:
+            fused_text += f"=== Knowledge Graph Relational Facts (GraphRAG) ===\n{graph_context}\n\n"
+            
+        if vector_text:
+            if graph_context:
+                fused_text += f"=== Financial Report Segments (Vector Search) ===\n{vector_text}"
+            else:
+                fused_text += vector_text
+        else:
+            if graph_context:
+                fused_text += "=== Financial Report Segments (Vector Search) ===\nNo semantic vector documents matched."
+                
+        return fused_text
             
     except Exception as e:
         logger.error(f"Error in VectorSearch: {e}")

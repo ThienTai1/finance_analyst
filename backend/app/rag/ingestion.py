@@ -348,6 +348,14 @@ def ingest_pdf(pdf_path: str, filename: str) -> dict:
         chunk_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_chunk_{idx}"))
         ids.append(chunk_uuid)
         
+        # Extract and index entity relationships for GraphRAG
+        try:
+            from app.rag.graph import extract_entities_and_relations_sync, index_graph_relations
+            relations = extract_entities_and_relations_sync(chunk["content"])
+            index_graph_relations(chunk_uuid, relations)
+        except Exception as graph_err:
+            logger.error(f"Failed to extract relationships for chunk {idx} inside GraphRAG: {graph_err}")
+        
     # 5. Insert into Qdrant using local FastEmbed pipeline
     client = get_qdrant_client()
     client.add(
