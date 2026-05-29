@@ -219,13 +219,85 @@ def chunk_text(pages_data: list[dict], chunk_size: int = 1000, chunk_overlap: in
             
     return chunks
 
+def call_ollama_ingest_sync(prompt: str, system_prompt: str = "You are a helpful assistant.") -> str:
+    """
+    Submits prompt to local Ollama synchronously.
+    """
+    import httpx
+    from app.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+    
+    url = f"{OLLAMA_BASE_URL}/api/generate"
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "system": system_prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.1,
+        }
+    }
+    
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            return response.json()["response"].strip()
+    except Exception as e:
+        logger.error(f"Ollama call failed during ingestion: {e}")
+        return ""
+
+def generate_document_summary(pages_data: list[dict], filename: str) -> str:
+    """
+    Generates a concise 2-sentence summary/outline of the PDF document.
+    """
+    if not pages_data:
+        return f"This document is named {filename}."
+        
+    # Combine text from the first 2 pages (or 1 page if only 1 exists)
+    sample_text = ""
+    for page in pages_data[:2]:
+        sample_text += page["text"] + "\n"
+        
+    # Limit sample text length to keep prompt size small (approx 3000 chars)
+    sample_text = sample_text[:3000]
+    
+    prompt = (
+        f"Analyze the following excerpt from the beginning of a document named '{filename}':\n\n"
+        f"--- Excerpt ---\n{sample_text}\n---------------\n\n"
+        "Provide a concise, 1-2 sentence description explaining what this document is (e.g., company, year, report type, main topics).\n"
+        "Output ONLY the description. Do not add introductory words or explanations."
+    )
+    
+    logger.info(f"Generating document summary outline for: {filename}...")
+    summary = call_ollama_ingest_sync(prompt, "You are a professional document classifier.")
+    if not summary:
+        summary = f"This document is named {filename} containing financial data."
+    logger.info(f"Document Summary Generated: {summary}")
+    return summary
+
+def generate_chunk_preamble(doc_summary: str, chunk_text: str) -> str:
+    """
+    Generates a 1-sentence contextual description of a specific chunk relative to the document summary.
+    """
+    prompt = (
+        f"Document Context Summary: {doc_summary}\n\n"
+        f"Chunk Content to place in context:\n{chunk_text}\n\n"
+        "Please write a short, 1-sentence preamble that explains the context of this chunk relative to the document.\n"
+        "Example output: 'This segment is from Apple's FY 2026 report, detailing Services revenue trends.'\n"
+        "Output ONLY the 1-sentence preamble. Do not add introductory words or explain."
+    )
+    
+    preamble = call_ollama_ingest_sync(prompt, "You are a technical context-aware RAG assistant.")
+    return preamble.strip()
+
 def ingest_pdf(pdf_path: str, filename: str) -> dict:
     """
     Full ingestion pipeline:
     1. Parse PDF
     2. Chunk pages (semantic or character-based)
-    3. Generate IDs and Metadata
-    4. Save to local Qdrant Vector DB
+    3. Contextual Retrieval preamble generation (if enabled)
+    4. Generate IDs and Metadata
+    5. Save to local Qdrant Vector DB
     """
     logger.info(f"Starting ingestion for: {filename}")
     
@@ -242,7 +314,24 @@ def ingest_pdf(pdf_path: str, filename: str) -> dict:
         
     logger.info(f"Split PDF into {len(chunks)} chunks using strategy '{CHUNKING_STRATEGY}'.")
     
-    # 3. Formulate inputs for Qdrant client
+    # 3. Contextual Retrieval Preprocessing
+    from app.config import CONTEXTUAL_RETRIEVAL_ENABLED
+    if CONTEXTUAL_RETRIEVAL_ENABLED:
+        try:
+            doc_summary = generate_document_summary(pages_data, filename)
+            logger.info("Compiling contextual preambles for each chunk...")
+            for idx, chunk in enumerate(chunks):
+                preamble = generate_chunk_preamble(doc_summary, chunk["content"])
+                if preamble:
+                    # Prepend preamble to chunk content
+                    chunk["content"] = f"[{preamble}]\n{chunk['content']}"
+                if (idx + 1) % 5 == 0:
+                    logger.info(f"  Processed {idx + 1}/{len(chunks)} preambles...")
+            logger.info("Compiled all contextual preambles successfully!")
+        except Exception as e:
+            logger.error(f"Contextual Retrieval generation failed, falling back to standard text: {e}")
+            
+    # 4. Formulate inputs for Qdrant client
     documents = []
     metadata = []
     ids = []
@@ -259,7 +348,7 @@ def ingest_pdf(pdf_path: str, filename: str) -> dict:
         chunk_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_chunk_{idx}"))
         ids.append(chunk_uuid)
         
-    # 4. Insert into Qdrant using local FastEmbed pipeline
+    # 5. Insert into Qdrant using local FastEmbed pipeline
     client = get_qdrant_client()
     client.add(
         collection_name=COLLECTION_NAME,
