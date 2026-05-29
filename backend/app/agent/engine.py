@@ -362,7 +362,12 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
                         # Safe parameters mapping
                         if action == "VectorSearch":
                             query_arg = params.get("query", user_query)
-                            tool_result = tool_func(query_arg)
+                            tool_result = tool_func(
+                                query_arg,
+                                original_query=user_query,
+                                trace_id=tool_span.trace_id if hasattr(tool_span, "trace_id") else None,
+                                parent_observation_id=tool_span.id if hasattr(tool_span, "id") else None
+                            )
                             observation = tool_result
                             
                         elif action == "StockData":

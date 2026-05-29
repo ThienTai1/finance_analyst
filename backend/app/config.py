@@ -50,6 +50,11 @@ LANGFUSE_ENABLED = bool(LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY)
 # Contextual Retrieval configurations
 CONTEXTUAL_RETRIEVAL_ENABLED = os.getenv("CONTEXTUAL_RETRIEVAL_ENABLED", "true").lower() == "true"
 
+# Agentic Query Rewrite configurations
+AGENTIC_QUERY_REWRITE_ENABLED = os.getenv("AGENTIC_QUERY_REWRITE_ENABLED", "true").lower() == "true"
+RERANK_MIN_PASSING_SCORE = float(os.getenv("RERANK_MIN_PASSING_SCORE", "0.0"))
+
+
 
 
 

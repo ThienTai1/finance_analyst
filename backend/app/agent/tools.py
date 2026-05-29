@@ -21,14 +21,80 @@ def get_reranker():
         _reranker = TextCrossEncoder(model_name="BAAI/bge-reranker-base")
     return _reranker
 
-def vector_search(query: str, limit: int = 5) -> str:
+def call_ollama_tools_sync(prompt: str, system_prompt: str) -> str:
+    """
+    Synchronous Ollama client wrapper using httpx.Client to perform synchronous queries.
+    This avoids event loop nesting conflicts inside synchronous tool wrappers.
+    """
+    from app.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+    import httpx
+    
+    url = f"{OLLAMA_BASE_URL}/api/generate"
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "system": system_prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.0,
+            "stop": ["\n"]
+        }
+    }
+    
+    logger.info(f"Submitting query reformulation to Ollama '{OLLAMA_MODEL}'...")
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            res_json = response.json()
+            return res_json.get("response", "").strip()
+    except Exception as e:
+        logger.error(f"Error calling Ollama in call_ollama_tools_sync: {e}")
+        return ""
+
+def refine_search_query(failed_query: str, original_query: str) -> str:
+    """
+    Calls Ollama to reformulate a search query that failed or yielded poor results.
+    """
+    system_prompt = (
+        "You are an expert search engine query optimizer.\n"
+        "Your task is to take a failed search query and the user's original objective, "
+        "and generate a refined, keyword-rich search query that is highly optimized "
+        "for semantic and sparse hybrid search in financial documents.\n"
+        "Output ONLY the optimized query. Do not include any explanations, introduction, "
+        "or markdown formatting."
+    )
+    prompt = (
+        f"Failed query: '{failed_query}'\n"
+        f"Original user objective: '{original_query}'\n\n"
+        f"Generate one optimized alternative search query. Output ONLY the query text."
+    )
+    
+    refined = call_ollama_tools_sync(prompt, system_prompt)
+    refined = refined.strip().strip("'\"")
+    if not refined:
+        refined = original_query
+    return refined
+
+def vector_search(
+    query: str,
+    limit: int = 5,
+    original_query: str = None,
+    trace_id: str = None,
+    parent_observation_id: str = None
+) -> str:
     """
     Search the local Qdrant Vector DB for matching financial report segments.
     Applies Advanced RAG: Retrieves 15 candidates and reranks them locally using Cross-Encoder.
+    Implements Agentic Self-Correction Loop for queries with poor/empty results.
     """
     logger.info(f"Tool VectorSearch called with query: '{query}'")
+    
+    # Resolve original query
+    original_query = original_query or query
+    
     try:
-        from app.config import QDRANT_SEARCH_EF
+        from app.config import QDRANT_SEARCH_EF, AGENTIC_QUERY_REWRITE_ENABLED, RERANK_MIN_PASSING_SCORE
         client = get_qdrant_client()
         
         # Build search-time tuning options
@@ -36,37 +102,92 @@ def vector_search(query: str, limit: int = 5) -> str:
         if QDRANT_SEARCH_EF is not None:
             search_kwargs["search_params"] = models.SearchParams(hnsw_ef=QDRANT_SEARCH_EF)
             
-        # 1. Hybrid Candidate Retrieval: Get 15 chunks semantically and key-word based
-        candidates_limit = 15
-        results = client.query(
-            collection_name=COLLECTION_NAME,
-            query_text=query,
-            limit=candidates_limit,
-            **search_kwargs
-        )
+        def execute_retrieval(search_query: str):
+            # 1. Hybrid Candidate Retrieval: Get 15 chunks semantically and key-word based
+            candidates_limit = 15
+            results = client.query(
+                collection_name=COLLECTION_NAME,
+                query_text=search_query,
+                limit=candidates_limit,
+                **search_kwargs
+            )
+            
+            if not results:
+                return [], []
+                
+            # 2. Local Cross-Encoder Reranking
+            try:
+                reranker = get_reranker()
+                docs = [res.document for res in results]
+                
+                # Compute rerank scores
+                rerank_results = list(reranker.rerank(search_query, docs))
+                
+                # Map original results and sort by new Cross-Encoder score descending
+                scored_results = []
+                for idx, score in enumerate(rerank_results):
+                    original_res = results[idx]
+                    scored_results.append({
+                        "res": original_res,
+                        "rerank_score": score
+                    })
+                    
+                scored_results.sort(key=lambda x: x["rerank_score"], reverse=True)
+                return results, scored_results
+            except Exception as re_err:
+                logger.warning(f"Reranking failed, falling back to standard vector similarity: {re_err}")
+                return results, []
+
+        # Run initial search
+        results, scored_results = execute_retrieval(query)
         
+        # Evaluate search quality
+        trigger_rewrite = False
+        if not results:
+            logger.info("Initial search returned no results. Checking if self-correction is enabled...")
+            trigger_rewrite = True
+        elif scored_results and scored_results[0]["rerank_score"] < RERANK_MIN_PASSING_SCORE:
+            logger.info(f"Top rerank score ({scored_results[0]['rerank_score']:.4f}) is below threshold ({RERANK_MIN_PASSING_SCORE:.4f}).")
+            trigger_rewrite = True
+            
+        if trigger_rewrite and AGENTIC_QUERY_REWRITE_ENABLED:
+            logger.info("Triggering agentic query reformulation loop...")
+            try:
+                refined_query = refine_search_query(query, original_query)
+                logger.info(f"Self-Correcting search: '{query}' -> '{refined_query}'")
+                
+                # Trace rewrite to Langfuse if enabled
+                if trace_id and parent_observation_id:
+                    try:
+                        from app.agent.engine import get_langfuse_client
+                        lf_client = get_langfuse_client()
+                        if lf_client:
+                            lf_client.event(
+                                name="Query Reformulation",
+                                trace_id=trace_id,
+                                parent_observation_id=parent_observation_id,
+                                input={"failed_query": query, "original_query": original_query},
+                                output={"refined_query": refined_query}
+                            )
+                            logger.info("Logged query rewrite event to Langfuse trace.")
+                    except Exception as trace_err:
+                        logger.warning(f"Failed to log query rewrite event to Langfuse: {trace_err}")
+                
+                # Retry search with refined query
+                refined_results, refined_scored = execute_retrieval(refined_query)
+                if refined_results:
+                    logger.info("Refined query retrieval succeeded!")
+                    results, scored_results = refined_results, refined_scored
+                else:
+                    logger.info("Refined query retrieval also returned no results. Retaining original results.")
+            except Exception as rewrite_err:
+                logger.error(f"Failed to execute query rewrite or retry: {rewrite_err}")
+
+        # Format results
         if not results:
             return "No matching financial records found in the database. Please upload a PDF report first."
             
-        # 2. Local Cross-Encoder Reranking
-        try:
-            reranker = get_reranker()
-            docs = [res.document for res in results]
-            
-            # Compute rerank scores
-            rerank_results = list(reranker.rerank(query, docs))
-            
-            # Map original results and sort by new Cross-Encoder score descending
-            scored_results = []
-            for idx, score in enumerate(rerank_results):
-                original_res = results[idx]
-                scored_results.append({
-                    "res": original_res,
-                    "rerank_score": score
-                })
-                
-            scored_results.sort(key=lambda x: x["rerank_score"], reverse=True)
-            
+        if scored_results:
             # Keep only the top 5 chunks
             final_results = scored_results[:limit]
             
@@ -83,9 +204,7 @@ def vector_search(query: str, limit: int = 5) -> str:
                 
             logger.info("Successfully reranked candidate chunks using local Cross-Encoder.")
             return "\n\n---\n\n".join(formatted_results)
-            
-        except Exception as re_err:
-            logger.warning(f"Reranking failed, falling back to standard vector similarity: {re_err}")
+        else:
             # Fallback to top-5 standard semantic similarity
             formatted_results = []
             for res in results[:limit]:
