@@ -2,11 +2,68 @@ import json
 import re
 import logging
 import httpx
+import time
 from typing import AsyncGenerator, Dict, Any, List
-from app.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from contextlib import contextmanager
+from app.config import (
+    OLLAMA_BASE_URL,
+    OLLAMA_MODEL,
+    LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SECRET_KEY,
+    LANGFUSE_HOST,
+    LANGFUSE_ENABLED
+)
 from app.agent.tools import ALL_TOOLS, TOOLS_METADATA
 
 logger = logging.getLogger(__name__)
+
+_langfuse_client = None
+
+def get_langfuse_client():
+    """
+    Lazy-loads and caches the Langfuse tracing client.
+    """
+    global _langfuse_client
+    if _langfuse_client is None and LANGFUSE_ENABLED:
+        from langfuse import Langfuse
+        logger.info("Initializing Langfuse client for agent tracing...")
+        _langfuse_client = Langfuse(
+            public_key=LANGFUSE_PUBLIC_KEY,
+            secret_key=LANGFUSE_SECRET_KEY,
+            host=LANGFUSE_HOST
+        )
+    return _langfuse_client
+
+@contextmanager
+def trace_observation(lf, name: str, as_type: str, **kwargs):
+    """
+    A unified context manager that yields a Langfuse observation if tracing is enabled,
+    or a dummy mock object if disabled. This prevents code clutter with conditional statements.
+    """
+    if lf:
+        try:
+            with lf.start_as_current_observation(name=name, as_type=as_type, **kwargs) as obs:
+                yield obs
+        except Exception as e:
+            logger.warning(f"Langfuse tracing error on observation '{name}': {e}")
+            # Fallback to dummy object on inner SDK errors
+            class DummyObservation:
+                def update(self, *args, **kwargs): pass
+                def end(self, *args, **kwargs): pass
+                @property
+                def id(self): return "dummy-id"
+                @property
+                def trace_id(self): return "dummy-trace-id"
+            yield DummyObservation()
+    else:
+        class DummyObservation:
+            def update(self, *args, **kwargs): pass
+            def end(self, *args, **kwargs): pass
+            @property
+            def id(self): return "dummy-id"
+            @property
+            def trace_id(self): return "dummy-trace-id"
+        yield DummyObservation()
 
 # Core ReAct Prompt
 SYSTEM_PROMPT = """You are an expert Financial Analyst & Market Research AI Agent. You specialize in conducting rigorous investment research and stock analysis.
@@ -109,10 +166,12 @@ def parse_agent_response(text: str) -> Dict[str, Any]:
                 
     return result
 
-async def call_ollama(prompt: str, system_prompt: str) -> str:
+async def call_ollama(prompt: str, system_prompt: str) -> dict:
     """
     Submits prompt to local Ollama.
     Uses low temperature (0.1) for high adherence to ReAct structure.
+    Returns:
+        {"response": str, "prompt_tokens": int, "output_tokens": int, "duration_s": float}
     """
     url = f"{OLLAMA_BASE_URL}/api/generate"
     payload = {
@@ -127,10 +186,29 @@ async def call_ollama(prompt: str, system_prompt: str) -> str:
     }
     
     logger.info(f"Submitting prompt to Ollama model '{OLLAMA_MODEL}'...")
+    start_time = time.time()
     async with httpx.AsyncClient(timeout=90.0) as client:
         response = await client.post(url, json=payload)
         response.raise_for_status()
-        return response.json()["response"]
+        duration_s = time.time() - start_time
+        
+        res_json = response.json()
+        text_response = res_json.get("response", "")
+        
+        # Capture tokens if present, fallback to estimation (approx 4 chars per token)
+        prompt_tokens = res_json.get("prompt_eval_count", len(prompt) // 4)
+        output_tokens = res_json.get("eval_count", len(text_response) // 4)
+        
+        # If Ollama provides total_duration, convert nanoseconds to seconds
+        if "total_duration" in res_json:
+            duration_s = float(res_json["total_duration"]) / 1e9
+            
+        return {
+            "response": text_response,
+            "prompt_tokens": prompt_tokens,
+            "output_tokens": output_tokens,
+            "duration_s": duration_s
+        }
 
 async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]] = None, max_steps: int = 8) -> AsyncGenerator[str, None]:
     """
@@ -146,6 +224,9 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
     - {"type": "error", "message": "..."}
     """
     yield json.dumps({"type": "start", "query": user_query}) + "\n"
+    
+    # 1. Initialize Langfuse client
+    lf = get_langfuse_client()
     
     # Structure system prompt
     tools_desc = format_tools_descriptions()
@@ -167,24 +248,68 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
     step_num = 1
     stock_charts_sent = set() # Avoid sending duplicate chart data in one run
     
-    while step_num <= max_steps:
-        logger.info(f"--- Agent Loop Step {step_num} ---")
+    # 2. Wrap overall execution in a root observation span
+    with trace_observation(
+        lf,
+        name="Financial Analyst ReAct Loop",
+        as_type="span",
+        input=user_query,
+        metadata={
+            "history_len": len(chat_history) if chat_history else 0,
+            "max_steps": max_steps,
+            "model": OLLAMA_MODEL
+        }
+    ) as root_span:
         
-        try:
-            # 1. Call LLM
-            llm_output = await call_ollama(current_prompt, sys_prompt)
+        while step_num <= max_steps:
+            logger.info(f"--- Agent Loop Step {step_num} ---")
+            
+            # 3. Trace LLM thinking step as a generation
+            with trace_observation(
+                lf,
+                name=f"ReAct Thought Step {step_num}",
+                as_type="generation",
+                model=OLLAMA_MODEL,
+                input=current_prompt,
+                model_parameters={"temperature": 0.1}
+            ) as generation:
+                
+                try:
+                    # Execute LLM call
+                    llm_result = await call_ollama(current_prompt, sys_prompt)
+                    llm_output = llm_result["response"]
+                    
+                    # Log generation results
+                    generation.update(
+                        output=llm_output,
+                        usage={
+                            "input": llm_result["prompt_tokens"],
+                            "output": llm_result["output_tokens"]
+                        }
+                    )
+                except Exception as llm_err:
+                    generation.update(
+                        output=str(llm_err),
+                        level="ERROR",
+                        status_message="Ollama API execution failed"
+                    )
+                    root_span.update(output=f"Error: {str(llm_err)}", level="ERROR")
+                    raise llm_err
+            
             logger.info(f"LLM Raw Output:\n{llm_output}")
             
-            # 2. Parse output
+            # 4. Parse ReAct output
             parsed = parse_agent_response(llm_output)
             thought = parsed["thought"] or "Analyzing information..."
             
             # Append this step's LLM generation to the prompt history
             current_prompt += f"\n{llm_output}\n"
             
-            # 3. Handle terminal answer
+            # 5. Handle terminal answer
             if parsed["final_answer"]:
                 logger.info(f"Agent finished. Final Answer found.")
+                root_span.update(output=parsed["final_answer"])
+                
                 yield json.dumps({
                     "type": "step",
                     "step": step_num,
@@ -204,7 +329,6 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
             
             if not action:
                 logger.warning("LLM did not request a tool and did not provide Final Answer. Prompting to complete.")
-                # Auto-inject correction to force completion
                 current_prompt += "\nSystem: You did not select an Action nor output Final Answer. If you have gathered all details, write 'Final Answer: [brief]'. Otherwise, select a valid tool.\n"
                 step_num += 1
                 continue
@@ -218,58 +342,70 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
                 "parameters": params
             }) + "\n"
             
-            # 4. Execute tool
-            if action not in ALL_TOOLS:
-                observation = f"Error: Tool '{action}' does not exist. Choose one of: {list(ALL_TOOLS.keys())}."
-                logger.error(observation)
-            else:
-                try:
-                    tool_func = ALL_TOOLS[action]
-                    
-                    # Safe parameters mapping
-                    if action == "VectorSearch":
-                        query_arg = params.get("query", user_query)
-                        tool_result = tool_func(query_arg)
-                        observation = tool_result
+            # 6. Trace Tool Call
+            with trace_observation(
+                lf,
+                name=f"Tool: {action}",
+                as_type="span",
+                input={"parameters": params}
+            ) as tool_span:
+                
+                observation = ""
+                if action not in ALL_TOOLS:
+                    observation = f"Error: Tool '{action}' does not exist. Choose one of: {list(ALL_TOOLS.keys())}."
+                    logger.error(observation)
+                    tool_span.update(output=observation, level="ERROR")
+                else:
+                    try:
+                        tool_func = ALL_TOOLS[action]
                         
-                    elif action == "StockData":
-                        ticker_arg = params.get("ticker", "").strip().upper()
-                        period_arg = params.get("period", "3mo")
-                        
-                        if not ticker_arg:
-                            # Try to extract ticker from raw parameters
-                            raw_val = params.get("raw", "")
-                            ticker_match = re.search(r"['\"]?([a-zA-Z]{1,5})['\"]?", raw_val)
-                            ticker_arg = ticker_match.group(1).upper() if ticker_match else ""
+                        # Safe parameters mapping
+                        if action == "VectorSearch":
+                            query_arg = params.get("query", user_query)
+                            tool_result = tool_func(query_arg)
+                            observation = tool_result
                             
-                        if not ticker_arg:
-                            observation = "Error: StockData tool requires a 'ticker' parameter."
-                        else:
-                            tool_result = tool_func(ticker_arg, period_arg)
+                        elif action == "StockData":
+                            ticker_arg = params.get("ticker", "").strip().upper()
+                            period_arg = params.get("period", "3mo")
                             
-                            # If successful, yield chart data to frontend so it displays alongside the chat!
-                            if tool_result.get("status") == "success" and ticker_arg not in stock_charts_sent:
-                                yield json.dumps({
-                                    "type": "chart_data",
-                                    "ticker": ticker_arg,
-                                    "fundamentals": tool_result["fundamentals"],
-                                    "chart_data": tool_result["chart_data"]
-                                }) + "\n"
-                                stock_charts_sent.add(ticker_arg)
+                            if not ticker_arg:
+                                # Try to extract ticker from raw parameters
+                                raw_val = params.get("raw", "")
+                                ticker_match = re.search(r"['\"]?([a-zA-Z]{1,5})['\"]?", raw_val)
+                                ticker_arg = ticker_match.group(1).upper() if ticker_match else ""
                                 
-                            observation = tool_result["llm_summary"]
+                            if not ticker_arg:
+                                observation = "Error: StockData tool requires a 'ticker' parameter."
+                            else:
+                                tool_result = tool_func(ticker_arg, period_arg)
+                                
+                                # Yield chart data to client
+                                if tool_result.get("status") == "success" and ticker_arg not in stock_charts_sent:
+                                    yield json.dumps({
+                                        "type": "chart_data",
+                                        "ticker": ticker_arg,
+                                        "fundamentals": tool_result["fundamentals"],
+                                        "chart_data": tool_result["chart_data"]
+                                    }) + "\n"
+                                    stock_charts_sent.add(ticker_arg)
+                                    
+                                observation = tool_result["llm_summary"]
+                                
+                        elif action == "WebSearch":
+                            query_arg = params.get("query", user_query)
+                            tool_result = tool_func(query_arg)
+                            observation = tool_result
                             
-                    elif action == "WebSearch":
-                        query_arg = params.get("query", user_query)
-                        tool_result = tool_func(query_arg)
-                        observation = tool_result
-                        
-                    else:
-                        observation = "Error: Invalid tool selected."
-                except Exception as ex:
-                    logger.error(f"Exception executing tool {action}: {ex}")
-                    observation = f"Exception executing tool {action}: {str(ex)}"
-                    
+                        else:
+                            observation = "Error: Invalid tool selected."
+                            
+                        tool_span.update(output=observation)
+                    except Exception as ex:
+                        logger.error(f"Exception executing tool {action}: {ex}")
+                        observation = f"Exception executing tool {action}: {str(ex)}"
+                        tool_span.update(output=observation, level="ERROR")
+            
             logger.info(f"Tool {action} Observation: {observation[:200]}...")
             
             # Send observation event to client
@@ -282,20 +418,12 @@ async def run_agent_workflow(user_query: str, chat_history: List[Dict[str, str]]
             
             # Feed the observation back into the current prompt
             current_prompt += f"Observation: {observation}\n"
+            step_num += 1
             
-        except Exception as e:
-            logger.error(f"Error in agent step {step_num}: {e}")
-            yield json.dumps({
-                "type": "error",
-                "message": f"Error occurred during agent reasoning: {str(e)}"
-            }) + "\n"
-            return
-            
-        step_num += 1
-        
-    # Exceeded maximum steps
-    logger.warning("Agent reached maximum step limit.")
-    yield json.dumps({
-        "type": "error",
-        "message": "Exceeded maximum steps limit. Agent stopped to prevent infinite loops."
-    }) + "\n"
+        # Exceeded maximum steps
+        logger.warning("Agent reached maximum step limit.")
+        root_span.update(output="Agent reached maximum step limit", level="WARNING", status_message="Exceeded Steps Limit")
+        yield json.dumps({
+            "type": "error",
+            "message": "Exceeded maximum steps limit. Agent stopped to prevent infinite loops."
+        }) + "\n"
