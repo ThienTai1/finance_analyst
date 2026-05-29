@@ -1,0 +1,17 @@
+[
+  {
+    "query": "According to the uploaded documents, what is Goldman Sachs' net revenue for Q2 2026?",
+    "reference_question": "According to the uploaded documents, what is Goldman Sachs' net revenue for Q2 2026?",
+    "expected_keywords": ["Goldman Sachs", "revenue", "12.5 billion", "second quarter"]
+  },
+  {
+    "query": "Based on the indexed reports, how much did renewable energy investments increase this fiscal year?",
+    "reference_question": "Based on the indexed reports, how much did renewable energy investments increase this fiscal year?",
+    "expected_keywords": ["renewable energy", "investments", "45%", "funding"]
+  },
+  {
+    "query": "According to the database, who is the CEO driving zero-emission logistics, and what is their strategy?",
+    "reference_question": "According to the database, who is the CEO driving zero-emission logistics, and what is their strategy?",
+    "expected_keywords": ["Jane Doe", "CEO", "zero-emission", "logistics"]
+  }
+]

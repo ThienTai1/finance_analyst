@@ -44,6 +44,14 @@ class ChatRequest(BaseModel):
     query: str
     history: Optional[List[ChatMessage]] = []
 
+class FeedbackRequest(BaseModel):
+    trace_id: str
+    rating: Optional[str] = None  # "like" or "dislike"
+    error_report: Optional[str] = None  # Bug report
+    copied: Optional[bool] = False  # Passive feedback: copy action
+    angry_retry: Optional[bool] = False  # Passive feedback: rapid retype
+
+
 @app.get("/api/health")
 async def health_check():
     """
@@ -167,6 +175,37 @@ async def get_ticker_data(ticker: str, period: Optional[str] = "3mo"):
     if res.get("status") == "error":
         raise HTTPException(status_code=404, detail=res.get("message"))
     return res
+
+@app.post("/api/feedback")
+async def submit_feedback(request: FeedbackRequest):
+    """
+    Log active or passive human feedback to local JSONL file.
+    """
+    import json
+    from datetime import datetime
+    
+    log_dir = Path(UPLOAD_DIR).parent / "data"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "feedback_log.jsonl"
+    
+    feedback_entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "trace_id": request.trace_id,
+        "rating": request.rating,
+        "error_report": request.error_report,
+        "copied": request.copied,
+        "angry_retry": request.angry_retry
+    }
+    
+    try:
+        with open(log_file, "a") as f:
+            f.write(json.dumps(feedback_entry) + "\n")
+        logger.info(f"Recorded human feedback log for trace {request.trace_id}")
+        return {"status": "success", "message": "Feedback recorded."}
+    except Exception as e:
+        logger.error(f"Error logging human feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
