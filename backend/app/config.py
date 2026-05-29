@@ -23,3 +23,10 @@ Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 PORT = int(os.getenv("PORT", "8000"))
 HOST = os.getenv("HOST", "0.0.0.0")
+
+# Chunking configurations
+CHUNKING_STRATEGY = os.getenv("CHUNKING_STRATEGY", "semantic").lower()
+SEMANTIC_SPLIT_THRESHOLD_PERCENTILE = int(os.getenv("SEMANTIC_SPLIT_THRESHOLD_PERCENTILE", "85"))
+CHUNK_MIN_SIZE = int(os.getenv("CHUNK_MIN_SIZE", "200"))
+CHUNK_MAX_SIZE = int(os.getenv("CHUNK_MAX_SIZE", "1500"))
+
